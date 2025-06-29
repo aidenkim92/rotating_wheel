@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
 
 void main() {
   runApp(const MainApp());
@@ -16,7 +17,9 @@ class MainApp extends StatelessWidget {
         body: Center(
           child: SizedBox.square(
             dimension: 400,
-            child: RotatingWheel(),
+            child: RotatingWheel(
+              size: 400,
+            ),
           ),
         ),
       ),
@@ -29,7 +32,12 @@ class RotatingWheel extends StatefulWidget {
     super.key,
     this.foregroundColor = Colors.red,
     this.backgroundColor = Colors.white,
+    required this.size,
   });
+
+  /// The height and width of the square space allocated to this
+  /// [RotatingWheel]
+  final double size;
 
   /// The color to show in the middle of the donut / wheel
   final Color foregroundColor;
@@ -40,34 +48,90 @@ class RotatingWheel extends StatefulWidget {
   State<RotatingWheel> createState() => _RotatingWheelState();
 }
 
-class _RotatingWheelState extends State<RotatingWheel> {
+class _RotatingWheelState extends State<RotatingWheel>
+    with SingleTickerProviderStateMixin {
+  Offset? panStart;
+  double?
+  panStartRadians; // Calculation between the start point and the centre point
+  double? deltaRadians;
+
+  Offset get centre => Offset(widget.size / 2, widget.size / 2);
+
+  late final AnimationController? _reverseRotationController;
+
+  @override
+  void initState() {
+    _reverseRotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    super.initState();
+  }
+
+  void _onPanStart(DragStartDetails details) {
+    panStart = details.localPosition;
+    panStartRadians = atan2(panStart!.dy - centre.dy, panStart!.dx - centre.dx);
+  }
+
+  void _onPanUpdate(DragUpdateDetails details) {
+    final dragRadians = atan2(
+      details.localPosition.dy - centre.dy,
+      details.localPosition.dx - centre.dx,
+    );
+
+    setState(() {
+      deltaRadians = dragRadians - panStartRadians!;
+      print(deltaRadians);
+    });
+  }
+
+  void _onPanEnd(DragEndDetails details) {
+    _reverseRotationController;
+    setState(() {
+      panStart = null;
+      panStartRadians = null;
+      deltaRadians = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constrains) {
         const double wheelThickness = 50;
 
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: CustomPaint(
-                painter: WheelPainter(
-                  rotation: 0,
-                  thickness: wheelThickness,
-                  foregroundColor: widget.foregroundColor,
-                  backgroundColor: widget.backgroundColor,
+        return GestureDetector(
+          onPanStart: _onPanStart,
+          onPanUpdate: _onPanUpdate,
+          onPanEnd: _onPanEnd,
+          child: Transform.rotate(
+            angle: deltaRadians ?? 0,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: WheelPainter(
+                      rotation: 0,
+                      thickness: wheelThickness,
+                      foregroundColor: widget.foregroundColor,
+                      backgroundColor: widget.backgroundColor,
+                    ),
+                  ),
                 ),
-              ),
+                Positioned(
+                  left: (constrains.maxWidth / 2) - (wheelThickness / 2),
+                  child: Transform.rotate(
+                    angle: -(deltaRadians ?? 0),
+                    child: Icon(
+                      Icons.flutter_dash_outlined,
+                      color: widget.backgroundColor,
+                      size: wheelThickness,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            Positioned(
-              left: (constrains.maxWidth / 2) - (wheelThickness / 2),
-              child: Icon(
-                Icons.flutter_dash_outlined,
-                color: widget.backgroundColor,
-                size: wheelThickness,
-              ),
-            ),
-          ],
+          ),
         );
       },
     );
