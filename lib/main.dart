@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 
+// TODO: Divide these into Microservices Structure
 void main() {
   runApp(const MainApp());
 }
