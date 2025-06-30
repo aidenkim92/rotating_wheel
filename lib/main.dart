@@ -54,16 +54,17 @@ class _RotatingWheelState extends State<RotatingWheel>
   double?
   panStartRadians; // Calculation between the start point and the centre point
   double? deltaRadians;
+  double? reverseDeltaRadians;
 
   Offset get centre => Offset(widget.size / 2, widget.size / 2);
 
-  late final AnimationController? _reverseRotationController;
+  late final AnimationController _reverseRotationController;
 
   @override
   void initState() {
     _reverseRotationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 2000),
     );
     super.initState();
   }
@@ -86,12 +87,27 @@ class _RotatingWheelState extends State<RotatingWheel>
   }
 
   void _onPanEnd(DragEndDetails details) {
-    _reverseRotationController;
-    setState(() {
-      panStart = null;
-      panStartRadians = null;
-      deltaRadians = null;
+    print('RELEASED');
+    _reverseRotationController.addListener(() {
+      setState(() {
+        reverseDeltaRadians =
+            deltaRadians! * (1 - _reverseRotationController.value);
+      });
     });
+    _reverseRotationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          deltaRadians = null;
+          reverseDeltaRadians = null;
+        });
+      }
+    });
+    _reverseRotationController.reset();
+    _reverseRotationController.animateTo(
+      1,
+      duration: Duration(milliseconds: 2000),
+      curve: Curves.bounceOut,
+    );
   }
 
   @override
@@ -100,12 +116,15 @@ class _RotatingWheelState extends State<RotatingWheel>
       builder: (context, constrains) {
         const double wheelThickness = 50;
 
+        double radiansToUse = reverseDeltaRadians ?? deltaRadians ?? 0;
+        print('radiansToUse: $radiansToUse');
+
         return GestureDetector(
           onPanStart: _onPanStart,
           onPanUpdate: _onPanUpdate,
           onPanEnd: _onPanEnd,
           child: Transform.rotate(
-            angle: deltaRadians ?? 0,
+            angle: radiansToUse,
             child: Stack(
               children: [
                 Positioned.fill(
@@ -121,7 +140,7 @@ class _RotatingWheelState extends State<RotatingWheel>
                 Positioned(
                   left: (constrains.maxWidth / 2) - (wheelThickness / 2),
                   child: Transform.rotate(
-                    angle: -(deltaRadians ?? 0),
+                    angle: -radiansToUse,
                     child: Icon(
                       Icons.flutter_dash_outlined,
                       color: widget.backgroundColor,
@@ -135,6 +154,12 @@ class _RotatingWheelState extends State<RotatingWheel>
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _reverseRotationController.dispose();
+    super.dispose();
   }
 }
 
